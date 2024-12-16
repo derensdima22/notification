@@ -5,9 +5,10 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
+import messaging from '@react-native-firebase/messaging';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -17,50 +18,52 @@ import {
   View,
 } from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import {Colors, Header} from 'react-native/Libraries/NewAppScreen';
 
 function App(): React.JSX.Element {
+  const [token, setToken] = useState<string>('');
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
+
+  const requestUserPermission = async () => {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (enabled) {
+      console.log('Permission to notify has been granted:', authStatus);
+    } else {
+      console.log('Notification authorization denied');
+    }
+  };
+
+  const setupFirebaseMessaging = useCallback(async () => {
+    await requestUserPermission();
+
+    const tokenFCM = await messaging().getToken();
+    console.log('FCM Token:', tokenFCM);
+    setToken(tokenFCM);
+
+    messaging().onMessage(async remoteMessage => {
+      console.log(
+        'Notification when the application is active:',
+        remoteMessage,
+      );
+      Alert.alert('New notice', JSON.stringify(remoteMessage.notification));
+    });
+
+    messaging().setBackgroundMessageHandler(async remoteMessage => {
+      console.log('Notification in the background:', remoteMessage);
+    });
+  }, []);
+
+  useEffect(() => {
+    setupFirebaseMessaging();
+  }, [setupFirebaseMessaging]);
 
   return (
     <SafeAreaView style={backgroundStyle}>
@@ -72,26 +75,11 @@ function App(): React.JSX.Element {
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
         <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
       </ScrollView>
+      <View style={styles.sectionToken}>
+        <Text style={{paddingBottom: 5}}>FCM Token:</Text>
+        <Text style={styles.FCMToken}>{token}</Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -112,6 +100,14 @@ const styles = StyleSheet.create({
   },
   highlight: {
     fontWeight: '700',
+  },
+  sectionToken: {
+    padding: 20,
+  },
+  FCMToken: {
+    borderColor: 'black',
+    borderWidth: 1,
+    padding: 5,
   },
 });
 

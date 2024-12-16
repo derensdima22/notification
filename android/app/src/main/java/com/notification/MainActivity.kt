@@ -1,4 +1,4 @@
-package com.notification
+package com.ethora
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
