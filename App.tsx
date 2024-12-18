@@ -9,16 +9,21 @@ import React, {useCallback, useEffect, useState} from 'react';
 import messaging from '@react-native-firebase/messaging';
 import {
   Alert,
+  Button,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  ToastAndroid,
   useColorScheme,
   View,
 } from 'react-native';
 
 import {Colors, Header} from 'react-native/Libraries/NewAppScreen';
+import Clipboard from '@react-native-clipboard/clipboard';
+import {Notifications} from 'react-native-notifications';
 
 function App(): React.JSX.Element {
   const [token, setToken] = useState<string>('');
@@ -26,6 +31,11 @@ function App(): React.JSX.Element {
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  };
+
+  const copyToClipboard = () => {
+    Clipboard.setString(token);
+    ToastAndroid.show('Text copied to the clipboard', ToastAndroid.SHORT);
   };
 
   const requestUserPermission = async () => {
@@ -65,6 +75,22 @@ function App(): React.JSX.Element {
     setupFirebaseMessaging();
   }, [setupFirebaseMessaging]);
 
+  useEffect(() => {
+    const notification = async () => {
+      if (Platform.OS === 'android') {
+        const response =
+          await Notifications.isRegisteredForRemoteNotifications();
+
+        console.log('response', response);
+        if (!response) {
+          Notifications.getInitialNotification();
+        }
+      }
+    };
+
+    notification();
+  }, []);
+
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
@@ -77,8 +103,9 @@ function App(): React.JSX.Element {
         <Header />
       </ScrollView>
       <View style={styles.sectionToken}>
-        <Text style={{paddingBottom: 5}}>FCM Token:</Text>
+        <Text style={styles.sectionTokenTitle}>FCM Token:</Text>
         <Text style={styles.FCMToken}>{token}</Text>
+        <Button title="Copy" onPress={copyToClipboard} />
       </View>
     </SafeAreaView>
   );
@@ -103,6 +130,9 @@ const styles = StyleSheet.create({
   },
   sectionToken: {
     padding: 20,
+  },
+  sectionTokenTitle: {
+    paddingBottom: 5,
   },
   FCMToken: {
     borderColor: 'black',
